@@ -97,12 +97,20 @@ public final class SsTableReader implements AutoCloseable {
         return bloom.mightContain(userKey);
     }
 
-    public Optional<byte[]> get(byte[] userKey) throws IOException {
+    public LookupResult lookup(byte[] userKey) throws IOException {
         if (!mightContain(userKey)) {
-            return Optional.empty();
+            return LookupResult.miss();
         }
         int blockIdx = findBlock(userKey);
         return scanBlock(blockIdx, userKey);
+    }
+
+    public enum LookupKind { MISS, TOMBSTONE, VALUE }
+
+    public record LookupResult(LookupKind kind, byte[] value) {
+        public static LookupResult miss() {
+            return new LookupResult(LookupKind.MISS, null);
+        }
     }
 
     private int findBlock(byte[] userKey) {
@@ -121,7 +129,7 @@ public final class SsTableReader implements AutoCloseable {
         return result;
     }
 
-    private Optional<byte[]> scanBlock(int blockIdx, byte[] userKey) throws IOException {
+    private LookupResult scanBlock(int blockIdx, byte[] userKey) throws IOException {
         long start = index.get(blockIdx).blockOffset();
         long end = blockIdx + 1 < index.size() ? index.get(blockIdx + 1).blockOffset() : footer.indexOffset();
         ByteBuffer block = ByteBuffer.allocate((int) (end - start));
@@ -151,12 +159,12 @@ public final class SsTableReader implements AutoCloseable {
             }
         }
         if (bestSeq < 0) {
-            return Optional.empty();
+            return LookupResult.miss();
         }
         if (tombstone) {
-            return Optional.ofNullable(null);
+            return new LookupResult(LookupKind.TOMBSTONE, null);
         }
-        return Optional.of(best);
+        return new LookupResult(LookupKind.VALUE, best);
     }
 
     static InternalKey decodeKey(byte[] encoded) {

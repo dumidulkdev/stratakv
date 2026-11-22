@@ -5,9 +5,8 @@ import java.util.Comparator;
 
 public record InternalKey(byte[] userKey, long sequence, boolean tombstone) implements Comparable<InternalKey> {
 
-    public static final Comparator<InternalKey> USER_KEY_ORDER = Comparator.comparing(
-            (InternalKey k) -> Arrays.compareUnsigned(k.userKey, k.userKey)
-    ).thenComparingLong(InternalKey::sequence).reversed();
+    public static final Comparator<InternalKey> USER_KEY_ORDER =
+            (a, b) -> Arrays.compareUnsigned(a.userKey, b.userKey);
 
     @Override
     public int compareTo(InternalKey other) {
